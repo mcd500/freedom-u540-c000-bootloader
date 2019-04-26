@@ -16,6 +16,7 @@ _start:
 
   smp_pause(s1, s2)
 
+#if !defined(BOARD)
 #ifndef SKIP_ECC_WIPEDOWN
   // Clean the LIM of ECC errors using DMA
   li t0, DMA_CTRL_ADDR + 0x80000 // channel 0
@@ -37,6 +38,7 @@ _start:
   bnez t1, 1b
   // release DMA
   sw zero, 0(t0)
+#endif
 #endif
 
   // Load data section
@@ -75,7 +77,7 @@ _start:
 
   call main
 
-  li t0, CCACHE_SIDEBAND_ADDR
+  li t0, BOATLOADER_ADDR
   csrr a0, mhartid
   la a1, _dtb
   jr t0

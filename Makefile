@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # See the file LICENSE for further information
 
+SHELL=/bin/bash -x
 CROSSCOMPILE?=riscv64-unknown-elf-
 CC=${CROSSCOMPILE}gcc
 LD=${CROSSCOMPILE}ld
@@ -50,6 +51,32 @@ elf: zsbl.elf fsbl.elf
 
 asm: zsbl.asm fsbl.asm
 
+ifeq ($(findstring vc707,$(BOARD)),vc707)
+bin:= zsbl.bin
+hex:= $(BUILD_DIR)/zsbl.hex
+
+dts := $(BUILD_DIR)/$(CONFIG_PROJECT).$(CONFIG).dts
+clk := $(BUILD_DIR)/$(CONFIG_PROJECT).$(CONFIG).tl_clock.h
+dtb := zsbl/ux00_zsbl.dtb
+inc_clk :=-include $(clk)
+CFLAGS += -DBOARD=$(BOARD)
+
+$(clk): $(dts)
+	awk '/tlclk {/ && !f{f=1; next}; f && match($$0, /^.*clock-frequency.*<(.*)>.*/, arr) { print "#define TL_CLK " arr[1] "UL"}' $< > $@.tmp
+	mv $@.tmp $@
+
+$(dtb): $(dts)
+	dtc $^ -o $@ -O dtb
+endif
+
+ifeq ($(strip $(BOARD)),)
+%.dtb: %.dts
+	dtc $^ -o $@ -O dtb
+endif
+
+ux00_zsbl_o.lds: ux00_zsbl.lds
+	$(CC) $(DEFINES) -E -P -o $@ -x c-header $^
+
 lib/version.c: .git/HEAD .git/index
 	echo "const char *gitid = \"$(shell git describe --always --dirty)\";" > lib/version.c
 	echo "const char *gitdate = \"$(shell git log -n 1 --date=short --format=format:"%ad.%h" HEAD)\";" >> lib/version.c
@@ -59,8 +86,8 @@ lib/version.c: .git/HEAD .git/index
 zsbl/ux00boot.o: ux00boot/ux00boot.c
 	$(CC) $(CFLAGS) -DUX00BOOT_BOOT_STAGE=0 -c -o $@ $^
 
-zsbl.elf: zsbl/start.o zsbl/main.o $(LIB_ZS1_O) zsbl/ux00boot.o $(LIB_ZS2_O) ux00_zsbl.lds
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(filter %.o,$^) -T$(filter %.lds,$^)
+zsbl.elf: $(clk) zsbl/start.o zsbl/main.o $(LIB_ZS1_O) zsbl/ux00boot.o $(LIB_ZS2_O) ux00_zsbl_o.lds
+	$(CC) $(CFLAGS) $(LDFLAGS) $(inc_clk) -o $@ $(filter %.o,$^) -T$(filter %.lds,$^)
 
 fsbl/ux00boot.o: ux00boot/ux00boot.c
 	$(CC) $(CFLAGS) -DUX00BOOT_BOOT_STAGE=1 -c -o $@ $^
@@ -78,14 +105,26 @@ zsbl/start.o: zsbl/ux00_zsbl.dtb
 %.asm: %.elf
 	$(OBJDUMP) -S $^ > $@
 
-%.dtb: %.dts
-	dtc $^ -o $@ -O dtb
-
 %.o: %.S
 	$(CC) $(CFLAGS) $(CCASFLAGS) -c $< -o $@
 
 %.o: %.c $(H)
-	$(CC) $(CFLAGS) -o $@ -c $<
+	$(CC) $(CFLAGS) $(inc_clk) -o $@ -c $<
+
+ifeq ($(BOARD),$(filter vc707,$(BOARD)))
+.PHONY: hex
+hex: $(hex)
+
+$(hex): $(bin)
+	od -t x4 -An -w4 -v $< > $@
+
+romgen := $(BUILD_DIR)/rom.v
+$(romgen): $(hex)
+	$(rocketchip_dir)/scripts/vlsi_rom_gen $(ROMCONF) $< > $@
+
+.PHONY: romgen
+romgen: $(romgen)
+endif
 
 clean::
-	rm -f */*.o */*.dtb zsbl.bin zsbl.elf zsbl.asm fsbl.bin fsbl.elf fsbl.asm lib/version.c
+	rm -f */*.o */*.dtb zsbl.bin zsbl.elf zsbl.asm fsbl.bin fsbl.elf fsbl.asm ${hex} lib/version.c

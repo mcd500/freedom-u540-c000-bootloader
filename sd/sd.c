@@ -110,6 +110,7 @@ static void sd_poweron(spi_ctrl* spi, unsigned int input_clk_khz)
 static int sd_cmd0(spi_ctrl* spi)
 {
   int rc;
+  puts("SD_CMD0");
   rc = (sd_cmd(spi, SD_CMD(SD_CMD_GO_IDLE_STATE), 0, 0x95) != SD_RESPONSE_IDLE);
   sd_cmd_end(spi);
   return rc;
@@ -124,6 +125,7 @@ static int sd_cmd8(spi_ctrl* spi)
   // Check for high capacity cards
   // Fail if card does not support SDHC
   int rc;
+  puts("SD_CMD8");
   rc = (sd_cmd(spi, SD_CMD(SD_CMD_SEND_IF_COND), 0x000001AA, 0x87) != SD_RESPONSE_IDLE);
   sd_dummy(spi); /* command version; reserved */
   sd_dummy(spi); /* reserved */
@@ -139,6 +141,7 @@ static int sd_cmd8(spi_ctrl* spi)
  */
 static void sd_cmd55(spi_ctrl* spi)
 {
+  puts("SD_CMD55");
   sd_cmd(spi, SD_CMD(SD_CMD_APP_CMD), 0, 0x65);
   sd_cmd_end(spi);
 }
@@ -150,6 +153,7 @@ static void sd_cmd55(spi_ctrl* spi)
 static int sd_acmd41(spi_ctrl* spi)
 {
   uint8_t r;
+  puts("SD_CMD41");
   do {
     sd_cmd55(spi);
     r = sd_cmd(spi, SD_CMD(SD_CMD_APP_SEND_OP_COND), 0x40000000, 0x77); /* HCS = 1 */
@@ -165,6 +169,7 @@ static int sd_acmd41(spi_ctrl* spi)
  */
 static int sd_cmd58(spi_ctrl* spi)
 {
+  puts("SD_CMD58");
   // HACK: Disabled due to bugs. It is not strictly necessary
   // to issue this command if we only support SD cards that support SDHC mode.
   return 0;
@@ -185,6 +190,7 @@ static int sd_cmd58(spi_ctrl* spi)
 static int sd_cmd16(spi_ctrl* spi)
 {
   int rc;
+  puts("SD_CMD16");
   rc = (sd_cmd(spi, SD_CMD(SD_CMD_SET_BLOCKLEN), 0x200, 0x15) != 0x00);
   sd_cmd_end(spi);
   return rc;
@@ -215,6 +221,7 @@ static uint16_t crc16(uint16_t crc, uint8_t data)
 
 int sd_init(spi_ctrl* spi, unsigned int input_clk_khz, int skip_sd_init_commands)
 {
+  puts("SD_INIT");
   // Skip SD initialization commands if already done earlier and only set the
   // clock divider for data transfer.
   if (!skip_sd_init_commands) {
@@ -236,6 +243,8 @@ int sd_copy(spi_ctrl* spi, void* dst, uint32_t src_lba, size_t size)
   volatile uint8_t *p = dst;
   long i = size;
   int rc = 0;
+
+//  puts("SD_COPY");
 
   uint8_t crc = 0;
   crc = crc7(crc, SD_CMD(SD_CMD_READ_BLOCK_MULTIPLE));

@@ -87,6 +87,10 @@ static int get_boot_spi_device(uint32_t mode_select)
 #error "Must define UX00BOOT_BOOT_STAGE"
 #endif
 
+#if BOARD == vc707
+  return spi_device = 0;
+#endif
+
 #if UX00BOOT_BOOT_STAGE == 0
   switch (mode_select)
   {
@@ -145,6 +149,10 @@ static int get_boot_spi_device(uint32_t mode_select)
 static ux00boot_routine get_boot_routine(uint32_t mode_select)
 {
   ux00boot_routine boot_routine = 0;
+
+#if BOARD == vc707
+  return boot_routine = UX00BOOT_ROUTINE_SDCARD;
+#endif
 
 #if UX00BOOT_BOOT_STAGE == 0
   switch (mode_select)
@@ -255,6 +263,7 @@ static gpt_partition_range find_sd_gpt_partition(
 
 static int decode_sd_copy_error(int error)
 {
+  puts("SD_READ_ERROR");
   switch (error) {
     case SD_COPY_ERROR_CMD18: return ERROR_CODE_SD_CARD_CMD18;
     case SD_COPY_ERROR_CMD18_CRC: return ERROR_CODE_SD_CARD_CMD18_CRC;
@@ -267,9 +276,11 @@ static int load_sd_gpt_partition(spi_ctrl* spictrl, void* dst, const gpt_guid* p
 {
   uint8_t gpt_buf[GPT_BLOCK_SIZE];
   int error;
+  puts("GPT: LOAD_SD_HEAD");
   error = sd_copy(spictrl, gpt_buf, GPT_HEADER_LBA, 1);
   if (error) return decode_sd_copy_error(error);
 
+  puts("GPT: PART_RANGE: READ");
   gpt_partition_range part_range;
   {
     // header will be overwritten by find_sd_gpt_partition(), so locally
@@ -286,8 +297,10 @@ static int load_sd_gpt_partition(spi_ctrl* spictrl, void* dst, const gpt_guid* p
   }
 
   if (!gpt_is_valid_partition_range(part_range)) {
+    puts("GPT: PART_RANGE: NOT FOUND");
     return ERROR_CODE_GPT_PARTITION_NOT_FOUND;
   }
+  puts("GPT: PART_RANGE: FOUND");
 
   error = sd_copy(
     spictrl,
@@ -515,7 +528,11 @@ void ux00boot_fail(long code, int trap)
  */
 void ux00boot_load_gpt_partition(void* dst, const gpt_guid* partition_type_guid, unsigned int peripheral_input_khz)
 {
+#if BOARD != vc707
   uint32_t mode_select = *((volatile uint32_t*) MODESELECT_MEM_ADDR);
+#else
+  uint32_t mode_select = 0;
+#endif
 
   spi_ctrl* spictrl = NULL;
   void* spimem = NULL;

@@ -8,7 +8,11 @@ MEMORY
   debug_ctrl (rwx) : ORIGIN = 0x0, LENGTH = 0x1000
   modeselect_mem (rx) : ORIGIN = 0x1000, LENGTH = 0x1000
   test_ctrl (rw) : ORIGIN = 0x4000, LENGTH = 0x1000
+#if BOARD != vc707
   maskrom_mem (rx) : ORIGIN = 0x10000, LENGTH = 0x8000
+#else
+  maskrom_mem (rx) : ORIGIN = 0x78000000, LENGTH = 0xf000
+#endif
   dtim_mem (rwx) : ORIGIN = 0x1000000, LENGTH = 0x2000
   buserror0_ctrl (rw) : ORIGIN = 0x1700000, LENGTH = 0x1000
   buserror1_ctrl (rw) : ORIGIN = 0x1701000, LENGTH = 0x1000
@@ -24,7 +28,11 @@ MEMORY
   ccache_ctrl (rw) : ORIGIN = 0x2010000, LENGTH = 0x1000
   msi_ctrl (rw) : ORIGIN = 0x2020000, LENGTH = 0x1000
   dma_ctrl (rw) : ORIGIN = 0x3000000, LENGTH = 0x100000
+#if BOARD != vc707
   ccache_sideband (rwx) : ORIGIN = 0x8000000, LENGTH = 0x1e0000
+#else
+  ccache_sideband (rwx) : ORIGIN = 0x80100000, LENGTH = 0x1e0000
+#endif
   cacheable_zero_mem (rwx) : ORIGIN = 0xa000000, LENGTH = 0x2000000
   plic_ctrl (rw) : ORIGIN = 0xc000000, LENGTH = 0x4000000
   ux00prci_ctrl (rw) : ORIGIN = 0x10000000, LENGTH = 0x1000
@@ -50,7 +58,11 @@ MEMORY
   spi1_mem (rx) : ORIGIN = 0x30000000, LENGTH = 0x10000000
   chiplink_mem0 (rwx) : ORIGIN = 0x40000000, LENGTH = 0x10000000
   chiplink_mem1 (rwx) : ORIGIN = 0x60000000, LENGTH = 0x10000000
+#if BOARD != vc707
   memory_mem (rwx) : ORIGIN = 0x80000000, LENGTH = 0x80000000
+#else
+  memory_mem (rwx) : ORIGIN = 0x80000000, LENGTH = 0x40000000
+#endif
   chiplink_mem2 (rwx) : ORIGIN = 0x2000000000, LENGTH = 0x20000000
   chiplink_mem3 (rwx) : ORIGIN = 0x2080000000, LENGTH = 0x180000000
   chiplink_mem4 (rwx) : ORIGIN = 0x3000000000, LENGTH = 0x20000000
