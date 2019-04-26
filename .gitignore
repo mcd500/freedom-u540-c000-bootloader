@@ -6,3 +6,10 @@
 *.bin
 *.asm
 lib/version.c
+a.log
+b.sh
+c-env.sh
+m-env.sh
+ux00_zsbl_o.lds
+zsbl/ux00_zsbl.dtb.orig
+zsbl/ux00_zsbl.dtb.vc707
