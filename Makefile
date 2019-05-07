@@ -86,7 +86,7 @@ lib/version.c:
 zsbl/ux00boot.o: ux00boot/ux00boot.c
 	$(CC) $(CFLAGS) -DUX00BOOT_BOOT_STAGE=0 -c -o $@ $^
 
-zsbl.elf: $(clk) zsbl/start.o zsbl/main.o $(LIB_ZS1_O) zsbl/ux00boot.o $(LIB_ZS2_O) ux00_zsbl.lds
+zsbl.elf: $(clk) zsbl/start.o zsbl/main.o $(LIB_ZS1_O) zsbl/ux00boot.o $(LIB_ZS2_O) memory_o.lds ux00_zsbl.lds
 	$(CC) $(CFLAGS) $(LDFLAGS) $(inc_clk) -o $@ $(filter %.o,$^) -T$(filter %.lds,$^)
 
 fsbl/ux00boot.o: ux00boot/ux00boot.c
