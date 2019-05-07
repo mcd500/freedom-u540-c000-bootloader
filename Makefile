@@ -74,10 +74,10 @@ ifeq ($(strip $(BOARD)),)
 	dtc $^ -o $@ -O dtb
 endif
 
-ux00_zsbl_o.lds: ux00_zsbl.lds
+memory_o.lds: memory.lds
 	$(CC) $(DEFINES) -E -P -o $@ -x c-header $^
 
-lib/version.c: .git/HEAD .git/index
+lib/version.c:
 	echo "const char *gitid = \"$(shell git describe --always --dirty)\";" > lib/version.c
 	echo "const char *gitdate = \"$(shell git log -n 1 --date=short --format=format:"%ad.%h" HEAD)\";" >> lib/version.c
 	echo "const char *gitversion = \"$(shell git rev-parse HEAD)\";" >> lib/version.c
@@ -86,7 +86,7 @@ lib/version.c: .git/HEAD .git/index
 zsbl/ux00boot.o: ux00boot/ux00boot.c
 	$(CC) $(CFLAGS) -DUX00BOOT_BOOT_STAGE=0 -c -o $@ $^
 
-zsbl.elf: $(clk) zsbl/start.o zsbl/main.o $(LIB_ZS1_O) zsbl/ux00boot.o $(LIB_ZS2_O) ux00_zsbl_o.lds
+zsbl.elf: $(clk) zsbl/start.o zsbl/main.o $(LIB_ZS1_O) zsbl/ux00boot.o $(LIB_ZS2_O) ux00_zsbl.lds
 	$(CC) $(CFLAGS) $(LDFLAGS) $(inc_clk) -o $@ $(filter %.o,$^) -T$(filter %.lds,$^)
 
 fsbl/ux00boot.o: ux00boot/ux00boot.c
