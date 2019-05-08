@@ -94,13 +94,15 @@ zsbl/ux00boot.o: ux00boot/ux00boot.c memory_o.lds
 zsbl.elf: $(clk) zsbl/start.o zsbl/main.o $(LIB_ZS1_O) zsbl/ux00boot.o $(LIB_ZS2_O) ux00_zsbl.lds
 	$(CC) $(CFLAGS) $(LDFLAGS) $(inc_clk) -o $@ $(filter %.o,$^) -T$(filter %.lds,$^)
 
-fsbl/ux00boot.o: ux00boot/ux00boot.c
+ifeq ($(strip $(BOARD)),)
+fsbl/ux00boot.o: ux00boot/ux00boot.c memory_o.lds
 	$(CC) $(CFLAGS) -DUX00BOOT_BOOT_STAGE=1 -c -o $@ $^
 
 fsbl.elf: $(LIB_FS_O) ux00_fsbl.lds
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(filter %.o,$^) -T$(filter %.lds,$^)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(inc_clk) -o $@ $(filter %.o,$^) -T$(filter %.lds,$^)
 
 fsbl/dtb.o: fsbl/ux00_fsbl.dtb
+endif
 
 zsbl/start.o: zsbl/ux00_zsbl.dtb
 

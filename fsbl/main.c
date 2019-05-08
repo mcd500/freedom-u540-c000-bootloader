@@ -21,7 +21,9 @@
 #define DENALI_CTL_DATA ddr_ctl_settings
 #include "ddrregs.h"
 
+#ifndef DDR_SIZE
 #define DDR_SIZE  (8UL * 1024UL * 1024UL * 1024UL)
+#endif
 #define DDRCTLPLL_F 55
 #define DDRCTLPLL_Q 2
 
@@ -49,6 +51,12 @@
   #define _CONCAT3(A, B, C) A ## B ## C
   #define _SPI_MEM_ADDR(SPI_NUM) _CONCAT3(SPI, SPI_NUM, _MEM_ADDR)
   #define SPI_MEM_ADDR _SPI_MEM_ADDR(SPI_NUM)
+#endif
+
+#ifndef TL_CLK
+#define CORE_CLK_KHZ 33000
+#else
+#define CORE_CLK_KHZ TL_CLK / 1000
 #endif
 
 Barrier barrier = { {0, 0}, {0, 0}, 0}; // bss initialization is done by main core while others do wfi
@@ -119,6 +127,12 @@ void nsleep(long nsec) {
   while (nsec > 0) nsec -= step;
 }
 
+void init_uart(unsigned int peripheral_input_khz)
+{
+  unsigned long long uart_target_hz = 115200ULL;
+  UART0_REG(UART_REG_DIV) = uart_min_clk_divisor(peripheral_input_khz * 1000ULL, uart_target_hz);
+}
+
 int puts(const char * str){
 	uart_puts((void *) UART0_CTRL_ADDR, str);
 	return 1;
@@ -135,11 +149,18 @@ int main(int id, unsigned long dtb)
   unsigned long long uart_target_hz = 115200ULL;
   const uint32_t initial_core_clk_khz = 33000;
   unsigned long peripheral_input_khz;
+  puts("MAIN: START");
+#if BOARD != VC707
   if (UX00PRCI_REG(UX00PRCI_CLKMUXSTATUSREG) & CLKMUX_STATUS_TLCLKSEL){
     peripheral_input_khz = initial_core_clk_khz;
   } else {
     peripheral_input_khz = initial_core_clk_khz / 2;
   }
+#else
+  peripheral_input_khz = CORE_CLK_KHZ; // perpheral_clk = tlclk
+  init_uart(peripheral_input_khz);
+#endif
+#if BOARD != VC707
   UART0_REG(UART_REG_DIV) = uart_min_clk_divisor(peripheral_input_khz * 1000ULL, uart_target_hz);
 
   // Check Reset Values (lock don't care)
@@ -285,6 +306,10 @@ int main(int id, unsigned long dtb)
 
   // Procmon => core clock
   UX00PRCI_REG(UX00PRCI_PROCMONCFG) = 0x1 << 24;
+#else
+  const uint64_t ddr_size = DDR_SIZE;
+  const uint64_t ddr_end = PAYLOAD_DEST + ddr_size;
+#endif /* BOARD */
 
   // Copy the DTB and reduce the reported memory to match DDR
   dtb_target = ddr_end - 0x200000; // - 2MB
@@ -315,6 +340,7 @@ int main(int id, unsigned long dtb)
   puts(date);
   puts("-");
   puts(gitid);
+#if BOARD != VC707
   // If chiplink is connected and has a DTB, use that DTB instead of what we have
   // compiled-in. This will be replaced with a real bootloader with overlays in
   // the future
@@ -384,6 +410,13 @@ int main(int id, unsigned long dtb)
 #endif
   uart_puts(uart, "\r\n");
 #endif
+#else
+  dtb = (uintptr_t)&own_dtb;
+  puts("\r\nUsing FSBL DTB");
+  memcpy((void*)dtb_target, (void*)dtb, fdt_size(dtb));
+  fdt_reduce_mem(dtb_target, ddr_size); // reduce the RAM to physically present only
+  fdt_set_prop(dtb_target, "sifive,fsbl", (uint8_t*)&date[0]);
+#endif /* BOARD */
 
   puts("Loading boot payload");
   ux00boot_load_gpt_partition((void*) PAYLOAD_DEST, &gpt_guid_sifive_bare_metal, peripheral_input_khz);

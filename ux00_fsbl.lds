@@ -6,7 +6,7 @@
 OUTPUT_ARCH("riscv")
 ENTRY(_prog_start)
 
-INCLUDE memory.lds
+INCLUDE memory_o.lds
 
 PHDRS
 {
