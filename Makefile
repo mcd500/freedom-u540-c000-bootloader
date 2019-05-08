@@ -45,11 +45,16 @@ LIB_FS_O= \
 
 H=$(wildcard *.h */*.h)
 
+
+ifeq ($(strip $(BOARD)),)
 all: zsbl.bin fsbl.bin
-
 elf: zsbl.elf fsbl.elf
-
 asm: zsbl.asm fsbl.asm
+else
+all: zsbl.bin
+elf: zsbl.elf
+asm: zsbl.asm
+endif
 
 ifeq ($(findstring vc707,$(BOARD)),vc707)
 bin:= zsbl.bin
@@ -83,10 +88,10 @@ lib/version.c:
 	echo "const char *gitversion = \"$(shell git rev-parse HEAD)\";" >> lib/version.c
 #	echo "const char *gitstatus = \"$(shell git status -s )\";" >> lib/version.c
 
-zsbl/ux00boot.o: ux00boot/ux00boot.c
+zsbl/ux00boot.o: ux00boot/ux00boot.c memory_o.lds
 	$(CC) $(CFLAGS) -DUX00BOOT_BOOT_STAGE=0 -c -o $@ $^
 
-zsbl.elf: $(clk) zsbl/start.o zsbl/main.o $(LIB_ZS1_O) zsbl/ux00boot.o $(LIB_ZS2_O) memory_o.lds ux00_zsbl.lds
+zsbl.elf: $(clk) zsbl/start.o zsbl/main.o $(LIB_ZS1_O) zsbl/ux00boot.o $(LIB_ZS2_O) ux00_zsbl.lds
 	$(CC) $(CFLAGS) $(LDFLAGS) $(inc_clk) -o $@ $(filter %.o,$^) -T$(filter %.lds,$^)
 
 fsbl/ux00boot.o: ux00boot/ux00boot.c

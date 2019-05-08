@@ -11,7 +11,7 @@ MEMORY
 #if BOARD != vc707
   maskrom_mem (rx) : ORIGIN = 0x10000, LENGTH = 0x8000
 #else
-  maskrom_mem (rx) : ORIGIN = 0x78000000, LENGTH = 0xf000
+  maskrom_mem (rx) : ORIGIN = 0x78000000, LENGTH = 0x8000
 #endif
   dtim_mem (rwx) : ORIGIN = 0x1000000, LENGTH = 0x2000
   buserror0_ctrl (rw) : ORIGIN = 0x1700000, LENGTH = 0x1000
