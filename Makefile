@@ -131,4 +131,4 @@ romgen: $(romgen)
 endif
 
 clean::
-	rm -f */*.o */*.dtb zsbl.bin zsbl.elf zsbl.asm fsbl.bin fsbl.elf fsbl.asm ${hex} lib/version.c
+	rm -f */*.o */*.dtb zsbl.bin zsbl.elf zsbl.asm fsbl.bin fsbl.elf fsbl.asm ${hex} lib/version.c memory_o.lds

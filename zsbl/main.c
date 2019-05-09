@@ -45,7 +45,6 @@ int puts(const char* str){
 
 int main()
 {
-  puts("MAIN: START");
   if (read_csr(mhartid) == NONSMP_HART) {
     unsigned int peripheral_input_khz;
 #if BOARD != VC707
@@ -58,6 +57,7 @@ int main()
     peripheral_input_khz = CORE_CLK_KHZ; // perpheral_clk = tlclk
 #endif
     init_uart(peripheral_input_khz);
+    puts("MAIN: START");
     puts("MAIN: LOAD: GPT");
     ux00boot_load_gpt_partition((void*) BOATLOADER_ADDR, &gpt_guid_sifive_fsbl, peripheral_input_khz);
     puts("MAIN: LOAD: GPT: AFTER");
