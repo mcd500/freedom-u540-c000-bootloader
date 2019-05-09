@@ -40,6 +40,21 @@ LIB_FS_O= \
 	lib/strcmp.o \
 	lib/strlen.o \
 	fsbl/dtb.o \
+
+LIB_FS_1= \
+	fsbl/start.o \
+	fsbl/main.o \
+	$(LIB_ZS1_O) \
+	fsbl/ux00boot.o \
+	clkutils/clkutils.o \
+	gpt/gpt.o \
+	fdt/fdt.o \
+	sd/sd.o \
+	lib/memcpy.o \
+	lib/memset.o \
+	lib/strcmp.o \
+	lib/strlen.o \
+	fsbl/dtb.o \
 	
 
 H=$(wildcard *.h */*.h)
@@ -72,6 +87,10 @@ fsbl/dtb.o: fsbl/ux00_fsbl.dtb
 
 zsbl/start.o: zsbl/ux00_zsbl.dtb
 
+vc707fsbl: $(LIB_FS_1) ux00_fsbl.lds
+	$(CC) $(CFLAGS) $(LDFLAGS) -o vc707fsbl.elf $(filter %.o,$^) -T$(filter %.lds,$^)
+	$(OBJCOPY) -O binary vc707fsbl.elf vc707fsbl.bin
+
 %.bin: %.elf
 	$(OBJCOPY) -O binary $^ $@
 
@@ -88,4 +107,4 @@ zsbl/start.o: zsbl/ux00_zsbl.dtb
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 clean::
-	rm -f */*.o */*.dtb zsbl.bin zsbl.elf zsbl.asm fsbl.bin fsbl.elf fsbl.asm lib/version.c
+	rm -f */*.o */*.dtb zsbl.bin zsbl.elf zsbl.asm fsbl.bin fsbl.elf fsbl.asm vc707fsbl.elf vc707fsbl.bin lib/version.c

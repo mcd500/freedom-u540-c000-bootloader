@@ -9,7 +9,9 @@
 #include <string.h>
 #include <stdatomic.h>
 #include "fdt/fdt.h"
+#if BOARD!=vc707
 #include <ememoryotp/ememoryotp.h>
+#endif
 #include <uart/uart.h>
 #include <stdio.h>
 
@@ -21,7 +23,7 @@
 #define DENALI_CTL_DATA ddr_ctl_settings
 #include "ddrregs.h"
 
-#define DDR_SIZE  (8UL * 1024UL * 1024UL * 1024UL)
+#define DDR_SIZE  MEMORY_MEM_SIZE /*this needs to get from the platform.h*/
 #define DDRCTLPLL_F 55
 #define DDRCTLPLL_Q 2
 
@@ -35,7 +37,11 @@
 #include <ux00boot/ux00boot.h>
 #include <gpt/gpt.h>
 
+#if BOARD!=vc707
 #define NUM_CORES 5
+#else
+#define NUM_CORES 4
+#endif
 
 #ifndef PAYLOAD_DEST
   #define PAYLOAD_DEST MEMORY_MEM_ADDR
@@ -51,6 +57,13 @@
   #define SPI_MEM_ADDR _SPI_MEM_ADDR(SPI_NUM)
 #endif
 
+#if BOARD==vc707
+/*  #ifndef TL_CLK
+    #error Must define TL_CLK
+  #endif*/
+#define TL_CLK 150000 /*TODO: later change to include from ~.tl_clock.h*/
+#endif
+
 Barrier barrier = { {0, 0}, {0, 0}, 0}; // bss initialization is done by main core while others do wfi
 
 extern const gpt_guid gpt_guid_sifive_bare_metal;
@@ -59,19 +72,25 @@ unsigned int serial_to_burn = ~0;
 
 uint32_t __attribute__((weak)) own_dtb = 42; // not 0xedfe0dd0 the DTB magic
 
+#if BOARD!=vc707
 static const uintptr_t i2c_devices[] = {
   I2C_CTRL_ADDR,
 };
+#endif
 
 static spi_ctrl* const spi_devices[] = {
   (spi_ctrl*) SPI0_CTRL_ADDR,
+#if BOARD!=vc707
   (spi_ctrl*) SPI1_CTRL_ADDR,
   (spi_ctrl*) SPI2_CTRL_ADDR,
+#endif
 };
 
 static const uintptr_t uart_devices[] = {
   UART0_CTRL_ADDR,
+#if BOARD!=vc707
   UART1_CTRL_ADDR,
+#endif
 };
 
 
@@ -93,14 +112,20 @@ int slave_main(int id, unsigned long dtb);
  */
 void update_peripheral_clock_dividers(unsigned int peripheral_input_khz)
 {
+#if BOARD!=vc707
   unsigned int i2c_target_khz = 400;
   uint16_t prescaler = i2c_min_clk_prescaler(peripheral_input_khz, i2c_target_khz);
   for (size_t i = 0; i < sizeof(i2c_devices) / sizeof(i2c_devices[0]); i++) {
     _REG32(i2c_devices[i], I2C_PRESCALER_LO) = prescaler & 0xff;
     _REG32(i2c_devices[i], I2C_PRESCALER_HI) = (prescaler >> 8) & 0xff;
   }
+#endif
 
+#if BOARD!=vc707
   unsigned int spi_target_khz = 50000;
+#else
+  unsigned int spi_target_khz = 300;
+#endif
   unsigned int spi_div = spi_min_clk_divisor(peripheral_input_khz, spi_target_khz);
   for (size_t i = 0; i < sizeof(spi_devices) / sizeof(spi_devices[0]); i++) {
     spi_devices[i]->sckdiv = spi_div;
@@ -132,9 +157,15 @@ int main(int id, unsigned long dtb)
 
   // Initialize UART divider for 33MHz core clock in case if trap is taken prior
   // to core clock bump.
+#if BOARD!=vc707
   unsigned long long uart_target_hz = 115200ULL;
   const uint32_t initial_core_clk_khz = 33000;
   unsigned long peripheral_input_khz;
+#else
+  unsigned long peripheral_input_khz = TL_CLK;
+#endif
+
+#if BOARD!=vc707
   if (UX00PRCI_REG(UX00PRCI_CLKMUXSTATUSREG) & CLKMUX_STATUS_TLCLKSEL){
     peripheral_input_khz = initial_core_clk_khz;
   } else {
@@ -184,11 +215,11 @@ int main(int id, unsigned long dtb)
                                  &UX00PRCI_REG(UX00PRCI_COREPLLCFG),
                                  &UX00PRCI_REG(UX00PRCI_COREPLLOUT));
   }
-  
+
+
   //
   //DDR init
   //
-
   uint32_t ddrctlmhz =
     (PLL_R(0)) |
     (PLL_F(DDRCTLPLL_F)) |
@@ -235,9 +266,12 @@ int main(int id, unsigned long dtb)
   ux00ddr_mask_outofrange_interrupts(UX00DDR_CTRL_ADDR);
   ux00ddr_setuprangeprotection(UX00DDR_CTRL_ADDR,DDR_SIZE);
   ux00ddr_mask_port_command_error_interrupt(UX00DDR_CTRL_ADDR);
+#endif
 
   const uint64_t ddr_size = DDR_SIZE;
   const uint64_t ddr_end = PAYLOAD_DEST + ddr_size;
+
+#if BOARD!=vc707
   ux00ddr_start(UX00DDR_CTRL_ADDR, PHYSICAL_FILTER_CTRL_ADDR, ddr_end);
 
   ux00ddr_phy_fixup(UX00DDR_CTRL_ADDR); 
@@ -245,7 +279,6 @@ int main(int id, unsigned long dtb)
   //
   //GEMGXL init
   //
-
   uint32_t gemgxl125mhz =
     (PLL_R(0)) |
     (PLL_F(59)) |  /*4000Mhz VCO*/
@@ -285,9 +318,11 @@ int main(int id, unsigned long dtb)
 
   // Procmon => core clock
   UX00PRCI_REG(UX00PRCI_PROCMONCFG) = 0x1 << 24;
+#endif
 
   // Copy the DTB and reduce the reported memory to match DDR
   dtb_target = ddr_end - 0x200000; // - 2MB
+
 #ifndef SKIP_DTB_DDR_RANGE
 #define DEQ(mon, x) ((cdate[0] == mon[0] && cdate[1] == mon[1] && cdate[2] == mon[2]) ? x : 0)
 
@@ -315,9 +350,11 @@ int main(int id, unsigned long dtb)
   puts(date);
   puts("-");
   puts(gitid);
+
   // If chiplink is connected and has a DTB, use that DTB instead of what we have
   // compiled-in. This will be replaced with a real bootloader with overlays in
   // the future
+#if BOARD!=vc707
   uint32_t *chiplink_dtb = (uint32_t*)0x2ff0000000UL;
   if (*chiplink_dtb == 0xedfe0dd0){
 	dtb = (uintptr_t)chiplink_dtb;
@@ -326,6 +363,11 @@ int main(int id, unsigned long dtb)
 	dtb = (uintptr_t)&own_dtb;
 	puts("\r\nUsing FSBL DTB");
   }
+#else
+  dtb = (uintptr_t)&own_dtb;
+  puts("\r\nUsing FSBL DTB");
+#endif
+
   memcpy((void*)dtb_target, (void*)dtb, fdt_size(dtb));
   fdt_reduce_mem(dtb_target, ddr_size); // reduce the RAM to physically present only
   fdt_set_prop(dtb_target, "sifive,fsbl", (uint8_t*)&date[0]);
@@ -334,6 +376,7 @@ int main(int id, unsigned long dtb)
 #define FIRST_SLOT	0xfe
 #define LAST_SLOT	0x80
 
+#if BOARD!=vc707
   unsigned int serial = ~0;
   int serial_slot;
   ememory_otp_power_up_sequence();
@@ -346,11 +389,15 @@ int main(int id, unsigned long dtb)
     if (pos == ~0 && neg == ~0) break; // empty slot encountered
   }
   ememory_otp_exit_read();
+#else
+  unsigned int serial = 0x12345678;
+#endif
 
   void *uart = (void*)UART0_CTRL_ADDR;
   uart_puts(uart, "\r\nHiFive-U serial #: ");
   uart_put_hex(uart, serial);
 
+#if BOARD!=vc707
   // Program the OTP?
   if (serial_to_burn != ~0 && serial != serial_to_burn && serial_slot > LAST_SLOT) {
     uart_puts(uart, "Programming serial: ");
@@ -372,6 +419,7 @@ int main(int id, unsigned long dtb)
   }
 
   ememory_otp_power_down_sequence();
+#endif
 
   // SiFive MA-S MAC block; default to serial 0
   unsigned char mac[6] = { 0x70, 0xb3, 0xd5, 0x92, 0xf0, 0x00 };
@@ -395,7 +443,6 @@ int main(int id, unsigned long dtb)
   return 0;
 }
 
-
 /*
   HARTs 1..5 run slave_main
   slave_main is a weak symbol in crt.S
@@ -417,7 +464,9 @@ int slave_main(int id, unsigned long dtb)
 #endif
   // These next two guys must get inlined and not spill a0+a1 or it is broken!
   Barrier_Wait(&barrier, NUM_CORES);
+#if BOARD!=vc707
   ccache_enable_ways(CCACHE_CTRL_ADDR,14);
+#endif
   asm volatile ("unimp" : : "r"(a0), "r"(a1));
 
   return 0;
