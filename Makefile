@@ -11,7 +11,7 @@ OBJCOPY=${CROSSCOMPILE}objcopy
 OBJDUMP=${CROSSCOMPILE}objdump
 CFLAGS=-I. -O2 -ggdb -march=rv64imafdc -mabi=lp64d -Wall -mcmodel=medany -mexplicit-relocs
 CCASFLAGS=-I. -mcmodel=medany -mexplicit-relocs
-LDFLAGS=-nostdlib -nostartfiles
+LDFLAGS=-nostdlib -nostartfiles -static
 
 # This is broken up to match the order in the original zsbl
 # clkutils.o is there to match original zsbl, may not be needed
@@ -45,16 +45,11 @@ LIB_FS_O= \
 
 H=$(wildcard *.h */*.h)
 
-
-ifeq ($(strip $(BOARD)),)
 all: zsbl.bin fsbl.bin
+
 elf: zsbl.elf fsbl.elf
+
 asm: zsbl.asm fsbl.asm
-else
-all: zsbl.bin
-elf: zsbl.elf
-asm: zsbl.asm
-endif
 
 ifeq ($(findstring vc707,$(BOARD)),vc707)
 bin:= zsbl.bin
@@ -62,7 +57,8 @@ hex:= $(BUILD_DIR)/zsbl.hex
 
 dts := $(BUILD_DIR)/$(CONFIG_PROJECT).$(CONFIG).dts
 clk := $(BUILD_DIR)/$(CONFIG_PROJECT).$(CONFIG).tl_clock.h
-dtb := zsbl/ux00_zsbl.dtb
+z_dtb := zsbl/ux00_zsbl.dtb
+f_dtb := fsbl/ux00_fsbl.dtb
 inc_clk :=-include $(clk)
 CFLAGS += -DBOARD=$(BOARD)
 
@@ -70,7 +66,10 @@ $(clk): $(dts)
 	awk '/tlclk {/ && !f{f=1; next}; f && match($$0, /^.*clock-frequency.*<(.*)>.*/, arr) { print "#define TL_CLK " arr[1] "UL"}' $< > $@.tmp
 	mv $@.tmp $@
 
-$(dtb): $(dts)
+$(z_dtb): $(dts)
+	dtc $^ -o $@ -O dtb
+
+$(f_dtb): $(dts)
 	dtc $^ -o $@ -O dtb
 endif
 
@@ -94,7 +93,6 @@ zsbl/ux00boot.o: ux00boot/ux00boot.c memory_o.lds
 zsbl.elf: $(clk) zsbl/start.o zsbl/main.o $(LIB_ZS1_O) zsbl/ux00boot.o $(LIB_ZS2_O) ux00_zsbl.lds
 	$(CC) $(CFLAGS) $(LDFLAGS) $(inc_clk) -o $@ $(filter %.o,$^) -T$(filter %.lds,$^)
 
-ifeq ($(strip $(BOARD)),)
 fsbl/ux00boot.o: ux00boot/ux00boot.c memory_o.lds
 	$(CC) $(CFLAGS) -DUX00BOOT_BOOT_STAGE=1 -c -o $@ $^
 
@@ -102,7 +100,6 @@ fsbl.elf: $(LIB_FS_O) ux00_fsbl.lds
 	$(CC) $(CFLAGS) $(LDFLAGS) $(inc_clk) -o $@ $(filter %.o,$^) -T$(filter %.lds,$^)
 
 fsbl/dtb.o: fsbl/ux00_fsbl.dtb
-endif
 
 zsbl/start.o: zsbl/ux00_zsbl.dtb
 

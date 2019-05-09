@@ -135,6 +135,7 @@ void init_uart(unsigned int peripheral_input_khz)
 
 int puts(const char * str){
 	uart_puts((void *) UART0_CTRL_ADDR, str);
+	uart_puts((void *) UART0_CTRL_ADDR, "\r\n");
 	return 1;
 }
 
@@ -149,7 +150,6 @@ int main(int id, unsigned long dtb)
   unsigned long long uart_target_hz = 115200ULL;
   const uint32_t initial_core_clk_khz = 33000;
   unsigned long peripheral_input_khz;
-  puts("MAIN: START");
 #if BOARD != VC707
   if (UX00PRCI_REG(UX00PRCI_CLKMUXSTATUSREG) & CLKMUX_STATUS_TLCLKSEL){
     peripheral_input_khz = initial_core_clk_khz;
@@ -159,6 +159,7 @@ int main(int id, unsigned long dtb)
 #else
   peripheral_input_khz = CORE_CLK_KHZ; // perpheral_clk = tlclk
   init_uart(peripheral_input_khz);
+  puts("MAIN: START");
 #endif
 #if BOARD != VC707
   UART0_REG(UART_REG_DIV) = uart_min_clk_divisor(peripheral_input_khz * 1000ULL, uart_target_hz);
